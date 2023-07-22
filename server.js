@@ -9,7 +9,8 @@ app.use(bodyParser.json());
 connectDB()
 
 //routes
-app.use('/api/users', require('./routes/api/users'))
+app.use('/api/users', require('./routes/api/users'));
+app.use('/api/tasks', require('./routes/api/tasks'));
 
 //API to check connection
 app.get("/", (req, res) => {

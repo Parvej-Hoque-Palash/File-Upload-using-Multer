@@ -1,13 +1,28 @@
 const express = require("express");
 const router = express.Router() //helps to find routes
+const {body, validationResult} = require('express-validator');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const authenticateToken = require('../../middleware/auth');
 const User = require('../../models/User');
 
 //API to create user
-router.post('/create',async (req, res) => {
+router.post(
+    '/',
+    [
+        //validation
+        body('fname', 'fname is required').notEmpty(),
+        body('lname', 'lname is required').notEmpty(),
+        body('email', 'Please enter a valid email').notEmpty().isEmail(),
+        body('age', 'age is required').optional().isNumeric(),
+        body('password', 'Please enter a password with 6 or more characters').isLength({min: 6}),
+    ],
+    async (req, res) => {
         try {
+          const errors = validationResult(req)
+          if(!errors.isEmpty()){
+            return res.status(400).json({errors: errors.array()})
+          }
           const salt = await bcrypt.genSalt(10)
           const hash = await bcrypt.hash(req.body.password, salt)
           const password = hash
@@ -29,18 +44,25 @@ router.post('/create',async (req, res) => {
 );
 
 //API to user login
-router.post('/login', async (req, res) => {
+router.post(
+    '/login',
+    [
+        body('type','Type is required').notEmpty(),
+        body('type','Type must be email or refresh').isIn(['email','refresh'])
+    ],
+     async (req, res) => {
     try {
-      const {email, password, type, refreshToken} = req.body
-      if(!type){
-        res.status(401).json({message: 'Type is not found'})
-      }else{
+        const errors = validationResult(req);
+          if(!errors.isEmpty()){
+            return res.status(400).json({errors: errors.array()})
+          }
+        const {email, password, type, refreshToken} = req.body
+      
         if(type == 'email'){
           await handleEmailLogin(email, res, password);
         }else{
           handleRefreshLogin(refreshToken, res);
         }
-      }
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: "Something is wrong" });
@@ -167,8 +189,8 @@ function handleRefreshLogin(refreshToken, res) {
   }
   
   function getUserTokens(user, res) {
-    const accessToken = jwt.sign({ email: user.email, id: user._id }, process.env.JWT_SECRET, { expiresIn: '1m' });
-    const refreshToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '5m' });
+    const accessToken = jwt.sign({ email: user.email, id: user._id }, process.env.JWT_SECRET, { expiresIn: '5m' });
+    const refreshToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '10m' });
     const userObj = user.toJSON();
     userObj['accessToken'] = accessToken;
     userObj['refreshToken'] = refreshToken;
